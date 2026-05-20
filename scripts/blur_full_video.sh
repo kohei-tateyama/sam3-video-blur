@@ -1,38 +1,46 @@
 #!/usr/bin/env bash
-# ---------------------------------------------------------------------------
-# blur_full_video.sh — blur a video in a single SAM3 session (best quality).
+# blur faces and number plates in a video (single SAM3 session).
+# Best for short clips (≤ 10 s at 4K). For longer videos use blur_windowed_video.sh.
 #
-# Best for short clips (≤ 5-10 s at 4K on a 24 GB GPU).
-# For longer videos use blur_windowed_video.sh.
+# Usage:
+#   bash scripts/blur_full_video.sh --input INPUT --output OUTPUT [options]
 #
-# Edit the variables below, then run:
-#   bash blur_full_video.sh
-# ---------------------------------------------------------------------------
+# Options:
+#   --input PATH          input video file (required)
+#   --output PATH         output video file (required)
+#   --blur-strength N     gaussian blur kernel size, default 80
+#   --prompts p1 p2 ...   objects to blur, default: face "license plate"
 set -euo pipefail
 
-# ── Configure here ───────────────────────────────────────────────────────────
+# Defaults
+BLUR_STRENGTH=80
+PROMPTS=("face" "license plate")
 
-INPUT="/workspace/sam3/outputs/chunks/IMG_0006_part030.mp4"
-OUTPUT="./outputs/blurred/IMG_0006_part030_driver.mp4"
+usage() { echo "Usage: $0 --input <path> --output <path> [--blur-strength N] [--prompts p1 p2 ...]"; exit 1; }
 
-BLUR_STRENGTH=80                    # Gaussian blur kernel size (larger = heavier)
-PROMPTS=("face" "driver" "license plate")   # objects to blur
-# GPUS=(0)                         # uncomment to pin to a specific GPU
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --input)          INPUT="$2";         shift 2 ;;
+        --output)         OUTPUT="$2";        shift 2 ;;
+        --blur-strength)  BLUR_STRENGTH="$2"; shift 2 ;;
+        --prompts)
+            shift; PROMPTS=()
+            while [[ $# -gt 0 && "$1" != --* ]]; do PROMPTS+=("$1"); shift; done ;;
+        *) echo "Unknown argument: $1"; usage ;;
+    esac
+done
 
-# ── (no edits needed below) ──────────────────────────────────────────────────
+[[ -z "${INPUT:-}" ]]  && { echo "Error: --input is required";  usage; }
+[[ -z "${OUTPUT:-}" ]] && { echo "Error: --output is required"; usage; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 mkdir -p "$(dirname "${OUTPUT}")"
 
-ARGS=(
-    --input          "${INPUT}"
-    --output         "${OUTPUT}"
-    --blur-strength  "${BLUR_STRENGTH}"
-    --prompts        "${PROMPTS[@]}"
-)
-[[ -n "${GPUS+x}" ]] && ARGS+=(--gpus "${GPUS[@]}")
-
-conda run --no-capture-output -n sam3 env PYTHONUNBUFFERED=1 python "${SCRIPT_DIR}/scripts/blur_full_video.py" "${ARGS[@]}"
+conda run --no-capture-output -n sam3 env PYTHONUNBUFFERED=1 \
+    python "${SCRIPT_DIR}/blur_full_video.py" \
+    --input "${INPUT}" --output "${OUTPUT}" \
+    --blur-strength "${BLUR_STRENGTH}" \
+    --prompts "${PROMPTS[@]}"
 
 echo ""
-echo "=== Done. Output: ${OUTPUT} ==="
+echo "Done. Output: ${OUTPUT}"

@@ -1,27 +1,36 @@
 #!/usr/bin/env bash
-# ---------------------------------------------------------------------------
-# split_video.sh — split a video into fixed-length chunks.
+# split a video into fixed-length chunks for blurring.
 #
-# Edit the variables below, then run:
-#   bash split_video.sh
-# ---------------------------------------------------------------------------
+# Usage:
+#   bash scripts/split_video.sh --input INPUT [options]
+#
+# Options:
+#   --input PATH         input video file (required)
+#   --output-dir PATH    output folder, default: ./outputs/chunks
+#   --chunk-seconds N    chunk length in seconds, default: 5
 set -euo pipefail
 
-# ── Configure paths and options here ────────────────────────────────────────
+# Defaults
+OUTPUT_DIR="./outputs/chunks"
+CHUNK_SECONDS=5
 
-INPUT="/workspace/sam3/inputs/IMG_0006.MOV"  # path to the input video
-OUTPUT_DIR="./outputs/chunks"                # folder where chunks will be saved
+usage() { echo "Usage: $0 --input <path> [--output-dir <path>] [--chunk-seconds N]"; exit 1; }
 
-CHUNK_SECONDS=5                              # length of each chunk in seconds
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --input)         INPUT="$2";       shift 2 ;;
+        --output-dir)    OUTPUT_DIR="$2";  shift 2 ;;
+        --chunk-seconds) CHUNK_SECONDS="$2"; shift 2 ;;
+        *) echo "Unknown argument: $1"; usage ;;
+    esac
+done
 
-# ── (no edits needed below this line) ────────────────────────────────────────
+[[ -z "${INPUT:-}" ]] && { echo "Error: --input is required"; usage; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# Convert seconds to minutes (split_video.py uses --chunk-minutes)
 CHUNK_MINUTES=$(python3 -c "print(${CHUNK_SECONDS} / 60)")
 
-conda run -n sam3 python "${SCRIPT_DIR}/scripts/split_video.py" \
+conda run -n sam3 python "${SCRIPT_DIR}/split_video.py" \
     --input         "${INPUT}" \
     --output-dir    "${OUTPUT_DIR}" \
     --chunk-minutes "${CHUNK_MINUTES}"

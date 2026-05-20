@@ -1,40 +1,50 @@
 #!/usr/bin/env bash
-# ---------------------------------------------------------------------------
-# blur_windowed_video.sh — blur a video using windowed SAM3 tracking.
+# blur faces and number plates in a video using windowed SAM3 tracking.
+# Works on videos of any length by processing short windows at a time.
 #
-# Splits the video into short windows and runs SAM3 tracking on each window
-# separately, keeping GPU state small enough for any video length.
+# Usage:
+#   bash scripts/blur_windowed_video.sh --input INPUT --output OUTPUT [options]
 #
-# Edit the variables below, then run:
-#   bash blur_windowed_video.sh
-# ---------------------------------------------------------------------------
+# Options:
+#   --input PATH          input video file (required)
+#   --output PATH         output video file (required)
+#   --blur-strength N     gaussian blur kernel size, default 80
+#   --window-seconds N    tracking window length in seconds, default 5
+#   --prompts p1 p2 ...   objects to blur, default: face "license plate"
 set -euo pipefail
 
-# ── Configure here ───────────────────────────────────────────────────────────
+# Defaults
+BLUR_STRENGTH=80
+WINDOW_SECONDS=5
+PROMPTS=("face" "license plate")
 
-INPUT="/workspace/sam3/outputs/chunks/IMG_0006_part001.mp4"
-OUTPUT="./outputs/blurred/IMG_0006_part001.mp4"
+usage() { echo "Usage: $0 --input <path> --output <path> [--blur-strength N] [--window-seconds N] [--prompts p1 p2 ...]"; exit 1; }
 
-BLUR_STRENGTH=51                    # Gaussian blur kernel size (larger = heavier)
-WINDOW_SECONDS=5                   # tracking window length (shorter = less VRAM)
-PROMPTS=("face" "license plate")   # objects to blur
-# GPUS=(0)                         # uncomment to pin to a specific GPU
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --input)          INPUT="$2";          shift 2 ;;
+        --output)         OUTPUT="$2";         shift 2 ;;
+        --blur-strength)  BLUR_STRENGTH="$2";  shift 2 ;;
+        --window-seconds) WINDOW_SECONDS="$2"; shift 2 ;;
+        --prompts)
+            shift; PROMPTS=()
+            while [[ $# -gt 0 && "$1" != --* ]]; do PROMPTS+=("$1"); shift; done ;;
+        *) echo "Unknown argument: $1"; usage ;;
+    esac
+done
 
-# ── (no edits needed below) ──────────────────────────────────────────────────
+[[ -z "${INPUT:-}" ]]  && { echo "Error: --input is required";  usage; }
+[[ -z "${OUTPUT:-}" ]] && { echo "Error: --output is required"; usage; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 mkdir -p "$(dirname "${OUTPUT}")"
 
-ARGS=(
-    --input           "${INPUT}"
-    --output          "${OUTPUT}"
-    --blur-strength   "${BLUR_STRENGTH}"
-    --window-seconds  "${WINDOW_SECONDS}"
-    --prompts         "${PROMPTS[@]}"
-)
-[[ -n "${GPUS+x}" ]] && ARGS+=(--gpus "${GPUS[@]}")
-
-conda run --no-capture-output -n sam3 env PYTHONUNBUFFERED=1 python "${SCRIPT_DIR}/scripts/blur_video.py" "${ARGS[@]}"
+conda run --no-capture-output -n sam3 env PYTHONUNBUFFERED=1 \
+    python "${SCRIPT_DIR}/blur_video.py" \
+    --input "${INPUT}" --output "${OUTPUT}" \
+    --blur-strength "${BLUR_STRENGTH}" \
+    --window-seconds "${WINDOW_SECONDS}" \
+    --prompts "${PROMPTS[@]}"
 
 echo ""
-echo "=== Done. Output: ${OUTPUT} ==="
+echo "Done. Output: ${OUTPUT}"
