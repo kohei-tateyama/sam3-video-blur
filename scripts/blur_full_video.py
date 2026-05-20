@@ -94,6 +94,7 @@ def blur_video(
     blur_strength: int = 51,
     prompts: Optional[List[str]] = None,
     gpus_to_use=None,
+    fps_scale: float = 1.0,
 ) -> None:
     if prompts is None:
         prompts = ["face", "license plate"]
@@ -102,7 +103,8 @@ def blur_video(
     frames_bgr, fps = load_video_frames(input_path)
     n_frames = len(frames_bgr)
     h, w = frames_bgr[0].shape[:2]
-    print(f"      {n_frames} frames  |  {w}x{h}  |  {fps:.2f} fps", flush=True)
+    out_fps = fps * fps_scale
+    print(f"      {n_frames} frames  |  {w}x{h}  |  {fps:.2f} fps -> output {out_fps:.2f} fps", flush=True)
 
     if gpus_to_use is None:
         gpus_to_use = list(range(torch.cuda.device_count())) if torch.cuda.is_available() else None
@@ -168,7 +170,7 @@ def blur_video(
             n_blurred += 1
         blurred.append(frame)
 
-    save_video(blurred, output_path, fps)
+    save_video(blurred, output_path, out_fps)
     print(f"\nDone. {n_blurred}/{n_frames} frames blurred.\nOutput: {output_path}")
 
 
@@ -179,6 +181,8 @@ def _parse_args(argv=None):
     p.add_argument("--blur-strength", type=int, default=51)
     p.add_argument("--prompts", nargs="+", default=["face", "license plate"])
     p.add_argument("--gpus", nargs="*", type=int, default=None)
+    p.add_argument("--fps-scale", type=float, default=1.0,
+                   help="multiply output fps by this factor (e.g. 0.5 for half speed)")
     return p.parse_args(argv)
 
 
@@ -187,7 +191,7 @@ def main(argv=None):
     if not os.path.isfile(args.input):
         print(f"ERROR: {args.input} not found", file=sys.stderr); sys.exit(1)
     os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
-    blur_video(args.input, args.output, args.blur_strength, args.prompts, args.gpus)
+    blur_video(args.input, args.output, args.blur_strength, args.prompts, args.gpus, args.fps_scale)
 
 
 if __name__ == "__main__":
