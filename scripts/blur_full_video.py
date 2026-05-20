@@ -120,7 +120,7 @@ def blur_video(
                 type="start_session",
                 resource_path=tmp_dir,
                 offload_video_to_cpu=True,
-                offload_state_to_cpu=False,
+                offload_state_to_cpu=True,
             )
         )
         session_id = response["session_id"]
