@@ -1,408 +1,198 @@
-# SAM 3: Segment Anything with Concepts
+# Video Face & Number Plate Blurring
 
-Meta Superintelligence Labs
+Automatically blur faces and number plates in a video using
+[SAM3](https://ai.meta.com/research/publications/sam-3-segment-anything-with-concepts/)
+(Segment Anything with Concepts).
 
-[Nicolas Carion](https://www.nicolascarion.com/)\*,
-[Laura Gustafson](https://scholar.google.com/citations?user=c8IpF9gAAAAJ&hl=en)\*,
-[Yuan-Ting Hu](https://scholar.google.com/citations?user=E8DVVYQAAAAJ&hl=en)\*,
-[Shoubhik Debnath](https://scholar.google.com/citations?user=fb6FOfsAAAAJ&hl=en)\*,
-[Ronghang Hu](https://ronghanghu.com/)\*,
-[Didac Suris](https://www.didacsuris.com/)\*,
-[Chaitanya Ryali](https://scholar.google.com/citations?user=4LWx24UAAAAJ&hl=en)\*,
-[Kalyan Vasudev Alwala](https://scholar.google.co.in/citations?user=m34oaWEAAAAJ&hl=en)\*,
-[Haitham Khedr](https://hkhedr.com/)\*, Andrew Huang,
-[Jie Lei](https://jayleicn.github.io/),
-[Tengyu Ma](https://scholar.google.com/citations?user=VeTSl0wAAAAJ&hl=en),
-[Baishan Guo](https://scholar.google.com/citations?user=BC5wDu8AAAAJ&hl=en),
-Arpit Kalla, [Markus Marks](https://damaggu.github.io/),
-[Joseph Greer](https://scholar.google.com/citations?user=guL96CkAAAAJ&hl=en),
-Meng Wang, [Peize Sun](https://peizesun.github.io/),
-[Roman Rädle](https://scholar.google.com/citations?user=Tpt57v0AAAAJ&hl=en),
-[Triantafyllos Afouras](https://www.robots.ox.ac.uk/~afourast/),
-[Effrosyni Mavroudi](https://scholar.google.com/citations?user=vYRzGGEAAAAJ&hl=en),
-[Katherine Xu](https://k8xu.github.io/)°,
-[Tsung-Han Wu](https://patrickthwu.com/)°,
-[Yu Zhou](https://yu-bryan-zhou.github.io/)°,
-[Liliane Momeni](https://scholar.google.com/citations?user=Lb-KgVYAAAAJ&hl=en)°,
-[Rishi Hazra](https://rishihazra.github.io/)°,
-[Shuangrui Ding](https://mark12ding.github.io/)°,
-[Sagar Vaze](https://sgvaze.github.io/)°,
-[Francois Porcher](https://scholar.google.com/citations?user=LgHZ8hUAAAAJ&hl=en)°,
-[Feng Li](https://fengli-ust.github.io/)°,
-[Siyuan Li](https://siyuanliii.github.io/)°,
-[Aishwarya Kamath](https://ashkamath.github.io/)°,
-[Ho Kei Cheng](https://hkchengrex.com/)°,
-[Piotr Dollar](https://pdollar.github.io/)†,
-[Nikhila Ravi](https://nikhilaravi.com/)†,
-[Kate Saenko](https://ai.bu.edu/ksaenko.html)†,
-[Pengchuan Zhang](https://pzzhang.github.io/pzzhang/)†,
-[Christoph Feichtenhofer](https://feichtenhofer.github.io/)†
+SAM3 is an open-vocabulary segmentation model.  A text prompt such as `"face"`
+or `"license plate"` is enough to detect, segment, and track every matching
+instance across the entire video.  A Gaussian blur is then applied to each
+region in every frame, producing a privacy-safe output video.
 
-\* core contributor, ° intern, † project lead, order is random within groups
+---
 
-[[`Paper`](https://ai.meta.com/research/publications/sam-3-segment-anything-with-concepts/)]
-[[`Project`](https://ai.meta.com/sam3)]
-[[`Demo`](https://segment-anything.com/)]
-[[`Blog`](https://ai.meta.com/blog/segment-anything-model-3/)]
-[[`BibTeX`](#citing-sam-3)]
+## Repository layout
 
-![SAM 3 architecture](assets/model_diagram.png?raw=true) SAM 3 is a unified foundation model for promptable segmentation in images and videos. It can detect, segment, and track objects using text or visual prompts such as points, boxes, and masks. Compared to its predecessor [SAM 2](https://github.com/facebookresearch/sam2), SAM 3 introduces the ability to exhaustively segment all instances of an open-vocabulary concept specified by a short text phrase or exemplars. Unlike prior work, SAM 3 can handle a vastly larger set of open-vocabulary prompts. It achieves 75-80% of human performance on our new [SA-CO benchmark](https://github.com/facebookresearch/sam3?tab=readme-ov-file#sa-co-dataset) which contains 270K unique concepts, over 50 times more than existing benchmarks.
+```
+.
+├── sam3/                        # SAM3 model source code
+├── scripts/
+│   ├── blur_full_video.py       # full-session blurring logic
+│   ├── blur_video.py            # windowed blurring logic
+│   ├── split_video.py           # video chunking logic
+│   ├── blur_full_video.sh       # ← run this for short clips / pre-split chunks
+│   ├── blur_windowed_video.sh   # ← run this for longer videos
+│   └── split_video.sh           # ← run this to pre-split a long video
+├── setup_conda_env.sh           # one-shot environment setup
+├── pyproject.toml
+└── LICENSE
+```
 
-This breakthrough is driven by an innovative data engine that has automatically annotated over 4 million unique concepts, creating the largest high-quality open-vocabulary segmentation dataset to date. In addition, SAM 3 introduces a new model architecture featuring a presence token that improves discrimination between closely related text prompts (e.g., “a player in white” vs. “a player in red”), as well as a decoupled detector–tracker design that minimizes task interference and scales efficiently with data.
+---
 
-<p align="center">
-  <img src="assets/dog.gif" width=380 />
-  <img src="assets/player.gif" width=380 />
-</p>
+## Requirements
 
-## Latest updates
+| Requirement | Version |
+|---|---|
+| OS | Linux |
+| Python | 3.12+ |
+| PyTorch | 2.10.0+ |
+| CUDA driver | 12.6+ |
+| GPU VRAM | ≥ 24 GB recommended for 4K video |
+| GPU arch | Turing (7.5) or newer — Ampere+ preferred for Flash Attention |
 
-**03/27/2026 -- SAM 3.1 Object Multiplex is released. It introduces a shared-memory approach for joint multi-object tracking that is significantly faster without sacrificing accuracy.**
+A [HuggingFace account](https://huggingface.co) is required to download the
+SAM3 model checkpoint (free, one-time).
 
-- A new suite of improved model checkpoints (denoted as **SAM 3.1**) are released on [Hugging Face](https://huggingface.co/facebook/sam3.1). See [`RELEASE_SAM3p1.md`](RELEASE_SAM3p1.md) for full details.
-  * To use the new SAM 3.1 checkpoints, you need the latest model code from this repo. If you have installed an earlier version of this repo, pull the latest code from this repo (with `git pull`), and then reinstall the repo following [Installation](#installation) below.
+---
 
 ## Installation
 
-### Prerequisites
-
-- Python 3.12 or higher
-- PyTorch 2.7 or higher
-- CUDA-compatible GPU with CUDA 12.6 or higher
-
-1. **Create a new Conda environment:**
+### 1. Create the conda environment
 
 ```bash
-conda create -n sam3 python=3.12
-conda deactivate
-conda activate sam3
+bash setup_conda_env.sh          # creates an env named "sam3"
 ```
 
-2. **Install PyTorch with CUDA support:**
+The script installs:
+- Python 3.12
+- PyTorch 2.10.0 with CUDA 12.8 (`cu128` wheel index)
+- SAM3 package in editable mode with all inference dependencies
+- `einops` and `ninja` for faster kernel compilation
+
+### 2. Authenticate with HuggingFace
+
+The SAM3 checkpoint is gated.  Run this once:
 
 ```bash
-pip install torch==2.10.0 torchvision --index-url https://download.pytorch.org/whl/cu128
+conda run -n sam3 huggingface-cli login
 ```
 
-3. **Clone the repository and install the package:**
+Generate a read-only access token at <https://huggingface.co/settings/tokens>
+and paste it when prompted.  The checkpoint (~3.5 GB) is downloaded
+automatically on first inference.
+
+---
+
+## Recommended workflow for long videos
+
+Long videos (e.g. 4K, > 10 s) will run out of GPU memory if processed in a
+single session.  The recommended approach is to split first, then blur each
+chunk:
+
+### Step 1 — split the video into 5-second chunks
+
+Edit `scripts/split_video.sh` to set `INPUT` and `OUTPUT_DIR`, then:
 
 ```bash
-git clone https://github.com/facebookresearch/sam3.git
-cd sam3
-pip install -e .
+bash scripts/split_video.sh
 ```
 
-4. **Install additional dependencies for example notebooks or development:**
+Chunks are written to `OUTPUT_DIR` as `<basename>_part001.mp4`,
+`<basename>_part002.mp4`, etc.
+
+### Step 2 — blur each chunk
+
+Edit `scripts/blur_full_video.sh` to set `INPUT`, `OUTPUT`, and optionally
+`BLUR_STRENGTH` and `PROMPTS`, then:
 
 ```bash
-# For running example notebooks
-pip install -e ".[notebooks]"
-
-# For development
-pip install -e ".[train,dev]"
+bash scripts/blur_full_video.sh
 ```
 
-5. **Optional dependencies for faster inference**
-```bash
-pip install einops ninja && pip install flash-attn-3 --no-deps --index-url https://download.pytorch.org/whl/cu128
-pip install git+https://github.com/ronghanghu/cc_torch.git
-```
-
-## Getting Started
-
-⚠️ Before using SAM 3, please request access to the checkpoints on the SAM 3
-Hugging Face [repo](https://huggingface.co/facebook/sam3). Once accepted, you
-need to be authenticated to download the checkpoints. You can do this by running
-the following [steps](https://huggingface.co/docs/huggingface_hub/en/quick-start#authentication)
-(e.g. `hf auth login` after generating an access token.)
-
-### Basic Usage
-
-```python
-import torch
-#################################### For Image ####################################
-from PIL import Image
-from sam3.model_builder import build_sam3_image_model
-from sam3.model.sam3_image_processor import Sam3Processor
-# Load the model
-model = build_sam3_image_model()
-processor = Sam3Processor(model)
-# Load an image
-image = Image.open("<YOUR_IMAGE_PATH.jpg>")
-inference_state = processor.set_image(image)
-# Prompt the model with text
-output = processor.set_text_prompt(state=inference_state, prompt="<YOUR_TEXT_PROMPT>")
-
-# Get the masks, bounding boxes, and scores
-masks, boxes, scores = output["masks"], output["boxes"], output["scores"]
-
-#################################### For Video ####################################
-
-from sam3.model_builder import build_sam3_video_predictor
-
-video_predictor = build_sam3_video_predictor()
-video_path = "<YOUR_VIDEO_PATH>" # a JPEG folder or an MP4 video file
-# Start a session
-response = video_predictor.handle_request(
-    request=dict(
-        type="start_session",
-        resource_path=video_path,
-    )
-)
-response = video_predictor.handle_request(
-    request=dict(
-        type="add_prompt",
-        session_id=response["session_id"],
-        frame_index=0, # Arbitrary frame index
-        text="<YOUR_TEXT_PROMPT>",
-    )
-)
-output = response["outputs"]
-```
-
-## Examples
-
-The `examples` directory contains notebooks demonstrating how to use SAM3 with
-various types of prompts:
-
-- [`sam3_image_predictor_example.ipynb`](examples/sam3_image_predictor_example.ipynb)
-  : Demonstrates how to prompt SAM 3 with text and visual box prompts on images.
-- [`sam3_video_predictor_example.ipynb`](examples/sam3_video_predictor_example.ipynb)
-  : Demonstrates how to prompt SAM 3 with text prompts on videos, and doing
-  further interactive refinements with points.
-- [`sam3_image_batched_inference.ipynb`](examples/sam3_image_batched_inference.ipynb)
-  : Demonstrates how to run batched inference with SAM 3 on images.
-- [`sam3_agent.ipynb`](examples/sam3_agent.ipynb): Demonsterates the use of SAM
-  3 Agent to segment complex text prompt on images.
-- [`saco_gold_silver_vis_example.ipynb`](examples/saco_gold_silver_vis_example.ipynb)
-  : Shows a few examples from SA-Co image evaluation set.
-- [`saco_veval_vis_example.ipynb`](examples/saco_veval_vis_example.ipynb) :
-  Shows a few examples from SA-Co video evaluation set.
-
-There are additional notebooks in the examples directory that demonstrate how to
-use SAM 3 for interactive instance segmentation in images and videos (SAM 1/2
-tasks), or as a tool for an MLLM, and how to run evaluations on the SA-Co
-dataset.
-
-To run the Jupyter notebook examples:
+To process all chunks in a loop:
 
 ```bash
-# Make sure you have the notebooks dependencies installed
-pip install -e ".[notebooks]"
-
-# Start Jupyter notebook
-jupyter notebook examples/sam3_image_predictor_example.ipynb
+for f in outputs/chunks/*.mp4; do
+    name=$(basename "$f")
+    sed -i \
+        "s|^INPUT=.*|INPUT=\"${f}\"|; s|^OUTPUT=.*|OUTPUT=\"./outputs/blurred/${name}\"|" \
+        scripts/blur_full_video.sh
+    bash scripts/blur_full_video.sh
+done
 ```
 
-## Model
+---
 
-SAM 3 consists of a detector and a tracker that share a vision encoder. It has 848M parameters. The
-detector is a DETR-based model conditioned on text, geometry, and image
-exemplars. The tracker inherits the SAM 2 transformer encoder-decoder
-architecture, supporting video segmentation and interactive refinement.
+## Scripts reference
 
-## Image Results
+### `scripts/blur_full_video.sh` — full-session blurring
 
-<div align="center">
-<table style="min-width: 80%; border: 2px solid #ddd; border-collapse: collapse">
-  <thead>
-    <tr>
-      <th rowspan="3" style="border-right: 2px solid #ddd; padding: 12px 20px">Model</th>
-      <th colspan="3" style="text-align: center; border-right: 2px solid #ddd; padding: 12px 20px">Instance Segmentation</th>
-      <th colspan="5" style="text-align: center; padding: 12px 20px">Box Detection</th>
-    </tr>
-    <tr>
-      <th colspan="2" style="text-align: center; border-right: 1px solid #eee; padding: 12px 20px">LVIS</th>
-      <th style="text-align: center; border-right: 2px solid #ddd; padding: 12px 20px">SA-Co/Gold</th>
-      <th colspan="2" style="text-align: center; border-right: 1px solid #eee; padding: 12px 20px">LVIS</th>
-      <th colspan="2" style="text-align: center; border-right: 1px solid #eee; padding: 12px 20px">COCO</th>
-      <th style="text-align: center; padding: 12px 20px">SA-Co/Gold</th>
-    </tr>
-    <tr>
-      <th style="text-align: center; padding: 12px 20px">cgF1</th>
-      <th style="text-align: center; border-right: 1px solid #eee; padding: 12px 20px">AP</th>
-      <th style="text-align: center; border-right: 2px solid #ddd; padding: 12px 20px">cgF1</th>
-      <th style="text-align: center; padding: 12px 20px">cgF1</th>
-      <th style="text-align: center; border-right: 1px solid #eee; padding: 12px 20px">AP</th>
-      <th style="text-align: center; padding: 12px 20px">AP</th>
-      <th style="text-align: center; border-right: 1px solid #eee; padding: 12px 20px">AP<sub>o</sub>
-</th>
-      <th style="text-align: center; padding: 12px 20px">cgF1</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td style="border-right: 2px solid #ddd; padding: 10px 20px">Human</td>
-      <td style="text-align: center; padding: 10px 20px">-</td>
-      <td style="text-align: center; border-right: 1px solid #eee; padding: 10px 20px">-</td>
-      <td style="text-align: center; border-right: 2px solid #ddd; padding: 10px 20px">72.8</td>
-      <td style="text-align: center; padding: 10px 20px">-</td>
-      <td style="text-align: center; border-right: 1px solid #eee; padding: 10px 20px">-</td>
-      <td style="text-align: center; padding: 10px 20px">-</td>
-      <td style="text-align: center; border-right: 1px solid #eee; padding: 10px 20px">-</td>
-      <td style="text-align: center; padding: 10px 20px">74.0</td>
-    </tr>
-    <tr>
-      <td style="border-right: 2px solid #ddd; padding: 10px 20px">OWLv2*</td>
-      <td style="text-align: center; padding: 10px 20px; color: #999">29.3</td>
-      <td style="text-align: center; border-right: 1px solid #eee; padding: 10px 20px; color: #999">43.4</td>
-      <td style="text-align: center; border-right: 2px solid #ddd; padding: 10px 20px">24.6</td>
-      <td style="text-align: center; padding: 10px 20px; color: #999">30.2</td>
-      <td style="text-align: center; border-right: 1px solid #eee; padding: 10px 20px; color: #999">45.5</td>
-      <td style="text-align: center; padding: 10px 20px">46.1</td>
-      <td style="text-align: center; border-right: 1px solid #eee; padding: 10px 20px">23.9</td>
-      <td style="text-align: center; padding: 10px 20px">24.5</td>
-    </tr>
-    <tr>
-      <td style="border-right: 2px solid #ddd; padding: 10px 20px">DINO-X</td>
-      <td style="text-align: center; padding: 10px 20px">-</td>
-      <td style="text-align: center; border-right: 1px solid #eee; padding: 10px 20px">38.5</td>
-      <td style="text-align: center; border-right: 2px solid #ddd; padding: 10px 20px">21.3</td>
-      <td style="text-align: center; padding: 10px 20px">-</td>
-      <td style="text-align: center; border-right: 1px solid #eee; padding: 10px 20px">52.4</td>
-      <td style="text-align: center; padding: 10px 20px">56.0</td>
-      <td style="text-align: center; border-right: 1px solid #eee; padding: 10px 20px">-</td>
-      <td style="text-align: center; padding: 10px 20px">22.5</td>
-    </tr>
-    <tr>
-      <td style="border-right: 2px solid #ddd; padding: 10px 20px">Gemini 2.5</td>
-      <td style="text-align: center; padding: 10px 20px">13.4</td>
-      <td style="text-align: center; border-right: 1px solid #eee; padding: 10px 20px">-</td>
-      <td style="text-align: center; border-right: 2px solid #ddd; padding: 10px 20px">13.0</td>
-      <td style="text-align: center; padding: 10px 20px">16.1</td>
-      <td style="text-align: center; border-right: 1px solid #eee; padding: 10px 20px">-</td>
-      <td style="text-align: center; padding: 10px 20px">-</td>
-      <td style="text-align: center; border-right: 1px solid #eee; padding: 10px 20px">-</td>
-      <td style="text-align: center; padding: 10px 20px">14.4</td>
-    </tr>
-    <tr style="border-top: 2px solid #b19c9cff">
-      <td style="border-right: 2px solid #ddd; padding: 10px 20px">SAM 3</td>
-      <td style="text-align: center; padding: 10px 20px">37.2</td>
-      <td style="text-align: center; border-right: 1px solid #eee; padding: 10px 20px">48.5</td>
-      <td style="text-align: center; border-right: 2px solid #ddd; padding: 10px 20px">54.1</td>
-      <td style="text-align: center; padding: 10px 20px">40.6</td>
-      <td style="text-align: center; border-right: 1px solid #eee; padding: 10px 20px">53.6</td>
-      <td style="text-align: center; padding: 10px 20px">56.4</td>
-      <td style="text-align: center; border-right: 1px solid #eee; padding: 10px 20px">55.7</td>
-      <td style="text-align: center; padding: 10px 20px">55.7</td>
-    </tr>
-  </tbody>
-</table>
+Opens the entire video in a single SAM3 session.  Best quality; best suited
+for short clips (≤ 5–10 s at 4K on a 24 GB GPU).
 
-<p style="text-align: center; margin-top: 10px; font-size: 0.9em; color: #ddd;">* Partially trained on LVIS, AP<sub>o</sub> refers to COCO-O accuracy</p>
+**Configure in the script:**
 
-</div>
+| Variable | Default | Description |
+|---|---|---|
+| `INPUT` | *(required)* | Path to the input video |
+| `OUTPUT` | *(required)* | Path for the output video |
+| `BLUR_STRENGTH` | `80` | Gaussian blur kernel size (larger = heavier) |
+| `PROMPTS` | `face` `license plate` | Objects to blur |
+| `GPUS` | *(all)* | Uncomment and set to pin to specific GPUs |
 
-## Video Results
+### `scripts/blur_windowed_video.sh` — windowed blurring
 
-<div align="center">
-<table style="min-width: 80%; border: 2px solid #ddd; border-collapse: collapse">
-  <thead>
-    <tr>
-      <th rowspan="2" style="border-right: 2px solid #ddd; padding: 12px 20px">Model</th>
-      <th colspan="2" style="text-align: center; border-right: 1px solid #eee; padding: 12px 20px">SA-V test</th>
-      <th colspan="2" style="text-align: center; border-right: 1px solid #eee; padding: 12px 20px">YT-Temporal-1B test</th>
-      <th colspan="2" style="text-align: center; border-right: 1px solid #eee; padding: 12px 20px">SmartGlasses test</th>
-      <th style="text-align: center; border-right: 1px solid #eee; padding: 12px 20px">LVVIS test</th>
-      <th style="text-align: center; padding: 12px 20px">BURST test</th>
-    </tr>
-    <tr>
-      <th style="text-align: center; padding: 12px 20px">cgF1</th>
-      <th style="text-align: center; border-right: 1px solid #eee; padding: 12px 20px">pHOTA</th>
-      <th style="text-align: center; padding: 12px 20px">cgF1</th>
-      <th style="text-align: center; border-right: 1px solid #eee; padding: 12px 20px">pHOTA</th>
-      <th style="text-align: center; padding: 12px 20px">cgF1</th>
-      <th style="text-align: center; border-right: 1px solid #eee; padding: 12px 20px">pHOTA</th>
-      <th style="text-align: center; border-right: 1px solid #eee; padding: 12px 20px">mAP</th>
-      <th style="text-align: center; padding: 12px 20px">HOTA</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td style="border-right: 2px solid #ddd; padding: 10px 20px">Human</td>
-      <td style="text-align: center; padding: 10px 20px">53.1</td>
-      <td style="text-align: center; border-right: 1px solid #eee; padding: 10px 20px">70.5</td>
-      <td style="text-align: center; padding: 10px 20px">71.2</td>
-      <td style="text-align: center; border-right: 1px solid #eee; padding: 10px 20px">78.4</td>
-      <td style="text-align: center; padding: 10px 20px">58.5</td>
-      <td style="text-align: center; border-right: 1px solid #eee; padding: 10px 20px">72.3</td>
-      <td style="text-align: center; border-right: 1px solid #eee; padding: 10px 20px">-</td>
-      <td style="text-align: center; padding: 10px 20px">-</td>
-    </tr>
-    <tr style="border-top: 2px solid #b19c9cff">
-      <td style="border-right: 2px solid #ddd; padding: 10px 20px">SAM 3</td>
-      <td style="text-align: center; padding: 10px 20px">30.3</td>
-      <td style="text-align: center; border-right: 1px solid #eee; padding: 10px 20px">58.0</td>
-      <td style="text-align: center; padding: 10px 20px">50.8</td>
-      <td style="text-align: center; border-right: 1px solid #eee; padding: 10px 20px">69.9</td>
-      <td style="text-align: center; padding: 10px 20px">36.4</td>
-      <td style="text-align: center; border-right: 1px solid #eee; padding: 10px 20px">63.6</td>
-      <td style="text-align: center; border-right: 1px solid #eee; padding: 10px 20px">36.3</td>
-      <td style="text-align: center; padding: 10px 20px">44.5</td>
-    </tr>
-  </tbody>
-</table>
-</div>
+Splits the video into short windows internally and runs SAM3 tracking on each
+window separately.  Can handle videos of any length, but tracking resets at
+each window boundary.
 
-## SA-Co Dataset
+**Additional variable:**
 
-We release 2 image benchmarks, [SA-Co/Gold](scripts/eval/gold/README.md) and
-[SA-Co/Silver](scripts/eval/silver/README.md), and a video benchmark
-[SA-Co/VEval](scripts/eval/veval/README.md). The datasets contain images (or videos) with annotated noun phrases. Each image/video and noun phrase pair is annotated with instance masks and unique IDs of each object matching the phrase. Phrases that have no matching objects (negative prompts) have no masks, shown in red font in the figure. See the linked READMEs for more details on how to download and run evaluations on the datasets.
+| Variable | Default | Description |
+|---|---|---|
+| `WINDOW_SECONDS` | `5` | Length of each tracking window in seconds |
 
-* HuggingFace host: [SA-Co/Gold](https://huggingface.co/datasets/facebook/SACo-Gold), [SA-Co/Silver](https://huggingface.co/datasets/facebook/SACo-Silver) and [SA-Co/VEval](https://huggingface.co/datasets/facebook/SACo-VEval)
-* Roboflow host: [SA-Co/Gold](https://universe.roboflow.com/sa-co-gold), [SA-Co/Silver](https://universe.roboflow.com/sa-co-silver) and [SA-Co/VEval](https://universe.roboflow.com/sa-co-veval)
+### `scripts/split_video.sh` — video splitter
 
-![SA-Co dataset](assets/sa_co_dataset.jpg?raw=true)
+Splits a video into fixed-length MP4 chunks using OpenCV.
 
-## Development
+| Variable | Default | Description |
+|---|---|---|
+| `INPUT` | *(required)* | Path to the input video |
+| `OUTPUT_DIR` | `./outputs/chunks` | Folder for output chunks |
+| `CHUNK_SECONDS` | `5` | Length of each chunk in seconds |
 
-To set up the development environment:
+---
 
-```bash
-pip install -e ".[dev,train]"
-```
+## How it works
 
-To format the code:
+1. **Split** *(recommended pre-step)* — long videos are split into short chunks
+   so each chunk fits in GPU memory.
+2. **Load** — all frames of the chunk are decoded from MP4 with OpenCV and
+   written to a temporary JPEG folder (the format SAM3 requires).
+3. **Segment & track** — for each text prompt:
+   - `add_prompt` runs full segmentation on frame 0 to find all instances.
+   - `propagate_in_video` tracks those masks forward through every frame using
+     SAM3's memory encoder — no re-segmentation per frame.
+   - Binary masks are collected per frame.
+4. **Merge** — masks from all prompts are OR-ed together into one boolean mask
+   per frame.
+5. **Blur** — Gaussian blur is applied to every pixel covered by the mask;
+   uncovered pixels are left unchanged.
+6. **Save** — output frames are re-encoded to an MP4 file.
 
-```bash
-ufmt format .
-```
+---
 
-## Contributing
+## Tips
 
-See [contributing](CONTRIBUTING.md) and the
-[code of conduct](CODE_OF_CONDUCT.md).
+- **Blur strength**: `80` is a good starting point for strong anonymisation.
+  Increase further (e.g. `151`) for maximum blur, or decrease for a subtler
+  effect.  The value is automatically rounded up to the nearest odd number.
+- **Custom prompts**: any English description works — e.g. `"face"`,
+  `"license plate"`, `"number plate"`, `"hand"`, `"tattoo"`.  Results from
+  multiple prompts are merged, so overlapping regions are only blurred once.
+- **Output format**: the output video preserves the original FPS and
+  resolution exactly.  The codec is `mp4v` (widely compatible).
+- **GPU memory**: 4K 5-second clips use approximately 1.8 GB of GPU state.
+  If you still hit OOM errors, reduce `CHUNK_SECONDS` in `split_video.sh`.
+- **No Flash Attention on Turing GPUs**: Turing (compute 7.5, e.g. RTX 6000)
+  is fully supported but runs without Flash Attention.  Expect ~3–7 minutes
+  per 5-second 4K chunk.  Ampere or newer GPUs will be significantly faster.
+
+---
 
 ## License
 
-This project is licensed under the SAM License - see the [LICENSE](LICENSE) file
-for details.
-
-## Acknowledgements
-
-We would like to thank the following people for their contributions to the SAM 3 project: Alex He, Alexander Kirillov,
-Alyssa Newcomb, Ana Paula Kirschner Mofarrej, Andrea Madotto, Andrew Westbury, Ashley Gabriel, Azita Shokpour,
-Ben Samples, Bernie Huang, Carleigh Wood, Ching-Feng Yeh, Christian Puhrsch, Claudette Ward, Daniel Bolya,
-Daniel Li, Facundo Figueroa, Fazila Vhora, George Orlin, Hanzi Mao, Helen Klein, Hu Xu, Ida Cheng, Jake Kinney,
-Jiale Zhi, Jo Sampaio, Joel Schlosser, Justin Johnson, Kai Brown, Karen Bergan, Karla Martucci, Kenny Lehmann,
-Maddie Mintz, Mallika Malhotra, Matt Ward, Michelle Chan, Michelle Restrepo, Miranda Hartley, Muhammad Maaz,
-Nisha Deo, Peter Park, Phillip Thomas, Raghu Nayani, Rene Martinez Doehner, Robbie Adkins, Ross Girshik, Sasha
-Mitts, Shashank Jain, Spencer Whitehead, Ty Toledano, Valentin Gabeur, Vincent Cho, Vivian Lee, William Ngan,
-Xuehai He, Yael Yungster, Ziqi Pang, Ziyi Dou, Zoe Quake.
-
-## Citing SAM 3
-
-If you use SAM 3 or the SA-Co dataset in your research, please use the following BibTeX entry.
-
-```bibtex
-@misc{carion2025sam3segmentconcepts,
-      title={SAM 3: Segment Anything with Concepts},
-      author={Nicolas Carion and Laura Gustafson and Yuan-Ting Hu and Shoubhik Debnath and Ronghang Hu and Didac Suris and Chaitanya Ryali and Kalyan Vasudev Alwala and Haitham Khedr and Andrew Huang and Jie Lei and Tengyu Ma and Baishan Guo and Arpit Kalla and Markus Marks and Joseph Greer and Meng Wang and Peize Sun and Roman Rädle and Triantafyllos Afouras and Effrosyni Mavroudi and Katherine Xu and Tsung-Han Wu and Yu Zhou and Liliane Momeni and Rishi Hazra and Shuangrui Ding and Sagar Vaze and Francois Porcher and Feng Li and Siyuan Li and Aishwarya Kamath and Ho Kei Cheng and Piotr Dollár and Nikhila Ravi and Kate Saenko and Pengchuan Zhang and Christoph Feichtenhofer},
-      year={2025},
-      eprint={2511.16719},
-      archivePrefix={arXiv},
-      primaryClass={cs.CV},
-      url={https://arxiv.org/abs/2511.16719},
-}
-```
+This project uses SAM3 which is released under the
+[Apache 2.0 License](LICENSE).
