@@ -20,7 +20,21 @@ conda run -n sam3 huggingface-cli login
 
 ## Usage
 
-### Blur a short clip (≤ 10 s)
+### Blur all images in a folder
+```bash
+bash scripts/blur_images.sh \
+    --input  photos/ \
+    --output photos_blurred/
+```
+
+### Blur a single image
+```bash
+bash scripts/blur_images.sh \
+    --input  photo.jpg \
+    --output photo_blurred.jpg
+```
+
+### Blur a short video clip (≤ 10 s)
 ```bash
 bash scripts/blur_full_video.sh \
     --input  footage.mp4 \
@@ -28,7 +42,7 @@ bash scripts/blur_full_video.sh \
 ```
 
 ### Blur a longer video
-Split it into 5-second chunks first, then blur each chunk:
+Split into 5-second chunks first, then blur each chunk:
 ```bash
 bash scripts/split_video.sh --input footage.mp4
 
@@ -43,19 +57,20 @@ done
 
 | Script | Options |
 |---|---|
-| `blur_full_video.sh` | `--input`, `--output`, `--blur-strength` (default 80), `--prompts` (default: `face` `license plate`) |
+| `blur_images.sh` | `--input` (file or folder), `--output` (file or folder), `--blur-strength` (default 80), `--prompts` (default: `face` `license plate`) |
+| `blur_full_video.sh` | `--input`, `--output`, `--blur-strength` (default 80), `--prompts` |
 | `blur_windowed_video.sh` | same as above + `--window-seconds` (default 5) |
 | `split_video.sh` | `--input`, `--output-dir` (default `./outputs/chunks`), `--chunk-seconds` (default 5) |
 
 **Examples:**
 ```bash
 # stronger blur, custom prompts
-bash scripts/blur_full_video.sh \
-    --input clip.mp4 --output clip_out.mp4 \
+bash scripts/blur_images.sh \
+    --input photos/ --output photos_blurred/ \
     --blur-strength 151 \
     --prompts "face" "number plate" "hand"
 
-# split into 10-second chunks
+# split video into 10-second chunks
 bash scripts/split_video.sh --input footage.mp4 --chunk-seconds 10
 ```
 
